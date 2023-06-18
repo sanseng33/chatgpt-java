@@ -44,11 +44,12 @@ import io.reactivex.Single;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
-import org.jetbrains.annotations.NotNull;
+import javax.validation.constraints.NotNull;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.jackson.JacksonConverterFactory;
 
+import javax.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.TimeUnit;

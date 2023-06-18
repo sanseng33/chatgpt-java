@@ -35,7 +35,7 @@ import com.unfbx.chatgpt.entity.whisper.Whisper;
 import com.unfbx.chatgpt.entity.whisper.WhisperResponse;
 import com.unfbx.chatgpt.interceptor.OpenAILogger;
 import com.unfbx.chatgpt.interceptor.OpenAiResponseInterceptor;
-import com.unfbx.chatgpt.utils.TikTokensUtil;
+
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
@@ -104,30 +104,30 @@ public class OpenAiClientTest {
     }
 
 
-    @Test
-    public void chatTokensTest() {
-        //聊天模型：gpt-3.5
-        List<Message> messages = new ArrayList<>(2);
-        messages.add(Message.builder().role(Message.Role.USER).content("关注微信公众号：程序员的黑洞。").build());
-        messages.add(Message.builder().role(Message.Role.USER).content("进入chatgpt-java交流群获取最新版本更新通知。").build());
-        ChatCompletion chatCompletion = ChatCompletion
-                .builder()
-                .messages(messages)
-                .maxTokens((4096 - TikTokensUtil.tokens(ChatCompletion.Model.GPT_3_5_TURBO.getName(),messages)))
-                .build();
-        ChatCompletionResponse chatCompletionResponse = v2.chatCompletion(chatCompletion);
-        //获取请求的tokens数量
-        long tokens = chatCompletion.tokens();
-        //这种方式也可以
-//        long tokens = TikTokensUtil.tokens(chatCompletion.getModel(),messages);
-        log.info("Message集合文本：【{}】", messages, tokens);
-        log.info("本地计算的请求的tokens数{}", tokens);
-        log.info("本地计算的返回的tokens数{}", TikTokensUtil.tokens(chatCompletion.getModel(),chatCompletionResponse.getChoices().get(0).getMessage().getContent()));
-        log.info("---------------------------------------------------");
-        log.info("Open AI 官方计算的总的tokens数{}", chatCompletionResponse.getUsage().getTotalTokens());
-        log.info("Open AI 官方计算的请求的tokens数{}", chatCompletionResponse.getUsage().getPromptTokens());
-        log.info("Open AI 官方计算的返回的tokens数{}", chatCompletionResponse.getUsage().getCompletionTokens());
-    }
+//    @Test
+//    public void chatTokensTest() {
+//        //聊天模型：gpt-3.5
+//        List<Message> messages = new ArrayList<>(2);
+//        messages.add(Message.builder().role(Message.Role.USER).content("关注微信公众号：程序员的黑洞。").build());
+//        messages.add(Message.builder().role(Message.Role.USER).content("进入chatgpt-java交流群获取最新版本更新通知。").build());
+//        ChatCompletion chatCompletion = ChatCompletion
+//                .builder()
+//                .messages(messages)
+//                .maxTokens((4096 - TikTokensUtil.tokens(ChatCompletion.Model.GPT_3_5_TURBO.getName(),messages)))
+//                .build();
+//        ChatCompletionResponse chatCompletionResponse = v2.chatCompletion(chatCompletion);
+//        //获取请求的tokens数量
+////        long tokens = chatCompletion.tokens();
+//        //这种方式也可以
+////        long tokens = TikTokensUtil.tokens(chatCompletion.getModel(),messages);
+////        log.info("Message集合文本：【{}】", messages, tokens);
+////        log.info("本地计算的请求的tokens数{}", tokens);
+//        log.info("本地计算的返回的tokens数{}", TikTokensUtil.tokens(chatCompletion.getModel(),chatCompletionResponse.getChoices().get(0).getMessage().getContent()));
+//        log.info("---------------------------------------------------");
+//        log.info("Open AI 官方计算的总的tokens数{}", chatCompletionResponse.getUsage().getTotalTokens());
+//        log.info("Open AI 官方计算的请求的tokens数{}", chatCompletionResponse.getUsage().getPromptTokens());
+//        log.info("Open AI 官方计算的返回的tokens数{}", chatCompletionResponse.getUsage().getCompletionTokens());
+//    }
 
     @Test
     public void testJson() throws JsonProcessingException {

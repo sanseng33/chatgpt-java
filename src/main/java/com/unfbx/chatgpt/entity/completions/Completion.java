@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.unfbx.chatgpt.exception.BaseException;
 import com.unfbx.chatgpt.exception.CommonError;
-import com.unfbx.chatgpt.utils.TikTokensUtil;
+
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
@@ -106,13 +106,13 @@ public class Completion implements Serializable {
      * 获取当前参数的tokens数
      * @return  token数量
      */
-    public long tokens() {
-        if (StrUtil.isBlank(this.prompt) || StrUtil.isBlank(this.model)) {
-            log.warn("参数异常model：{}，prompt：{}", this.model, this.prompt);
-            return 0;
-        }
-        return TikTokensUtil.tokens(this.model, this.prompt);
-    }
+//    public long tokens() {
+//        if (StrUtil.isBlank(this.prompt) || StrUtil.isBlank(this.model)) {
+//            log.warn("参数异常model：{}，prompt：{}", this.model, this.prompt);
+//            return 0;
+//        }
+//        return TikTokensUtil.tokens(this.model, this.prompt);
+//    }
 
     @Getter
     @AllArgsConstructor

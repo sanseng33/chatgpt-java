@@ -30,7 +30,7 @@ import okhttp3.*;
 import okhttp3.sse.EventSource;
 import okhttp3.sse.EventSourceListener;
 import okhttp3.sse.EventSources;
-import org.jetbrains.annotations.NotNull;
+import javax.validation.constraints.NotNull;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.jackson.JacksonConverterFactory;
