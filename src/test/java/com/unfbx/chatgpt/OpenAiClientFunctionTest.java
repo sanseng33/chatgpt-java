@@ -40,6 +40,7 @@ import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+
 /**
  * 描述： 测试类
  *
@@ -73,7 +74,7 @@ public class OpenAiClientFunctionTest {
                 .build();
         openAiClient = OpenAiClient.builder()
                 //支持多key传入，请求时候随机选择
-                .apiKey(Arrays.asList("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"))
+                .apiKey(Arrays.asList("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"))
                 //自定义key的获取策略：默认KeyRandomStrategy
                 .keyStrategy(new KeyRandomStrategy())
                 .authInterceptor(new DynamicKeyOpenAiAuthInterceptor())
@@ -84,7 +85,7 @@ public class OpenAiClientFunctionTest {
 
         openAiStreamClient = OpenAiStreamClient.builder()
                 //支持多key传入，请求时候随机选择
-                .apiKey(Arrays.asList("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"))
+                .apiKey(Arrays.asList("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"))
                 //自定义key的获取策略：默认KeyRandomStrategy
                 .keyStrategy(new KeyRandomStrategy())
                 .authInterceptor(new DynamicKeyOpenAiAuthInterceptor())
@@ -97,8 +98,10 @@ public class OpenAiClientFunctionTest {
     @Test
     public void chatFunctionTest() throws JsonProcessingException {
         //模型：GPT_3_5_TURBO_16K_0613
-        Message message = Message.builder().role(Message.Role.USER).content("查找华为技术有限公司最新申请的20篇专利,获取专利的摘要信息，将信息总结成几个技术方向。").build();
-        Message system = Message.builder().role(Message.Role.SYSTEM).content("如果用户的请求是模棱两可的，那么不要猜测函数中应该插入什么值，而是要求说明。").build();
+        Message message = Message.builder().role(Message.Role.USER)
+                .content("查找华为技术有限公司最新申请的20篇专利,获取专利的摘要信息，将摘要信息总结成最多5个技术方向，只给出精简后的描述。").build();
+        Message system = Message.builder().role(Message.Role.SYSTEM)
+                .content("如果用户的请求是模棱两可的，那么不要随意猜测函数中应该插入什么值，而是要求用户进行说明。").build();
 
         //构造 获取专利函数
         Parameters parameters = Parameters.builder()
@@ -106,7 +109,7 @@ public class OpenAiClientFunctionTest {
                 .properties(transform(new SrpRequest()))
                 .required(Arrays.asList("sort","page","q","playbook","_type")).build();
         Parameters outParameters = Parameters.builder()
-                .type("object")
+                .type("array")
                 .properties(transform(new SrpResponse())).build();
         Functions functions = Functions.builder()
                 .name("obtainPatentList")
@@ -132,53 +135,69 @@ public class OpenAiClientFunctionTest {
                 .builder()
                 .messages(Arrays.asList(system, message))
                 .functions(Arrays.asList(functions, abFunctions))
+                // ”auto”  自动选择函数
+                // ”none“  不选择函数
+                // {"name": "<insert-function-name>"}  选择指定函数
                 .functionCall("auto")
+//                .functionCall(SimpleJsonMapper.readValue("{\"name\":\"obtainPatentInfo\"}", JSONObject.class))
                 .model(ChatCompletion.Model.GPT_3_5_TURBO_16K_0613.getName())
                 .build();
 
-        String jsonStr = JSONUtil.toJsonStr(chatCompletion);
-        System.out.print(jsonStr);
+        log.info("当前请求体：{}", SimpleJsonMapper.writeValue(chatCompletion));
 
-        CountDownLatch countDownLatch = new CountDownLatch(1);
-        ConsoleEventSourceListenerV2 eventSourceListener = new ConsoleEventSourceListenerV2(countDownLatch);
-        openAiStreamClient.streamChatCompletion(chatCompletion, eventSourceListener);
-//        openAiClient.chatCompletion(chatCompletion);
-
-        try {
-            countDownLatch.await();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        //openai stream Completion
+        ConsoleEventSourceListenerV2 eventSourceListener = getEventSourceListener2(chatCompletion);
+        String funName = eventSourceListener.getFun();
         String args = eventSourceListener.getArgs();
-        System.out.print(args);
+
+        log.info("当前ai调用函数：{}", funName);
+        log.info("当前ai返回参数：{}", args);
 
         //拿生成的参数调用相应api
-        String apiResponse = obtainHttpData(args);
+        String apiResponse = obtainHttpData(funName, eventSourceListener.getArgs());
 
-
-        Message messageResponse = Message.builder().role(Message.Role.FUNCTION).name("obtainPatentList").content(apiResponse).build();
-        Message messageRequest = Message.builder().role(Message.Role.ASSISTANT).content("").functionCall(new FunctionCall("obtainPatentList", args)).build();
+        //分析函数返回结果
+        Message messageResponse = Message.builder().role(Message.Role.FUNCTION).name(funName).content(apiResponse).build();
+        Message messageRequest = Message.builder().role(Message.Role.ASSISTANT).content("").functionCall(new FunctionCall(funName, args)).build();
         chatCompletion.setMessages(Arrays.asList(message, messageRequest, messageResponse));
 
+        log.info("当前请求体：{}", SimpleJsonMapper.writeValue(chatCompletion));
 
+        ConsoleEventSourceListenerV2 eventSourceListener2 = getEventSourceListener2(chatCompletion);
+
+        funName = eventSourceListener2.getFun();
+        args = eventSourceListener2.getArgs();
+        if (Objects.nonNull(funName)) {
+            String httpData = obtainHttpData(funName, args);
+            messageResponse = Message.builder().role(Message.Role.FUNCTION).name(funName).content(httpData).build();
+            messageRequest = Message.builder().role(Message.Role.ASSISTANT).content("").functionCall(new FunctionCall(funName, args)).build();
+            chatCompletion.setMessages(Arrays.asList(message, messageRequest, messageResponse));
+
+            log.info("当前请求体：{}", SimpleJsonMapper.writeValue(chatCompletion));
+
+            ConsoleEventSourceListenerV2 eventSourceListener3 = getEventSourceListener2(chatCompletion);
+            funName = eventSourceListener3.getFun();
+            args = eventSourceListener3.getArgs();
+            if (Objects.isNull(funName) || "".equals(funName)) {
+                log.info("结论：{}", args);
+            }
+        }
+
+//        log.info("结论：{}", args);
+
+    }
+
+    private ConsoleEventSourceListenerV2 getEventSourceListener2(ChatCompletion chatCompletion) {
         CountDownLatch countDownLatch2 = new CountDownLatch(1);
         ConsoleEventSourceListenerV2 eventSourceListener2 = new ConsoleEventSourceListenerV2(countDownLatch2);
-
         openAiStreamClient.streamChatCompletion(chatCompletion, eventSourceListener2);
-
         try {
             countDownLatch2.await();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        args = eventSourceListener2.getArgs();
-        System.out.printf(args);
-
-//        log.info("构造的方法值：{}", chatChoice.getMessage().getFunctionCall());
-//        log.info("构造的方法名称：{}", chatChoice.getMessage().getFunctionCall().getName());
-//        log.info("构造的方法参数：{}", chatChoice.getMessage().getFunctionCall().getArguments());
+        return eventSourceListener2;
     }
-
 
 
     private JSONObject transform(Object request) {
@@ -206,9 +225,11 @@ public class OpenAiClientFunctionTest {
         return json;
     }
 
-    private String obtainHttpData(String arg) {
+    private String obtainHttpData(String func, String arg) {
         try {
-            String url =  "http://localhost:8080/eureka/search/srp";
+            String url =  func.equals("obtainPatentList")?
+                    "http://localhost:8080/eureka/search/srp"
+                    :"http://localhost:8080/eureka/patent/query/field";
             MediaType JSON = MediaType.parse("application/json; charset=utf-8");
             OkHttpClient client = new OkHttpClient();
 
@@ -224,10 +245,17 @@ public class OpenAiClientFunctionTest {
             Call call = client.newCall(request);
             Response response = call.execute();
 
-            if (response.isSuccessful()) {
+            if (response.isSuccessful() && func.equals("obtainPatentList")) {
                 String body = response.body().string();
                 Map map = SimpleJsonMapper.readValue(body, Map.class);
                 Object data = ((Map)map.get("data")).get("records");
+                List<SrpResponse> responses = JSONUtil.toList(JSONUtil.parseArray(data), SrpResponse.class);
+                return SimpleJsonMapper.writeValue(responses);
+            }
+            if (response.isSuccessful() && func.equals("obtainPatentInfo")) {
+                String body = response.body().string();
+                Map map = SimpleJsonMapper.readValue(body, Map.class);
+                Object data = map.get("data");
                 return SimpleJsonMapper.writeValue(data);
             }
 

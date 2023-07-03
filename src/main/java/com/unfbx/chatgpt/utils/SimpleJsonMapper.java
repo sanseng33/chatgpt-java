@@ -39,7 +39,7 @@ public class SimpleJsonMapper {
 
     public static <T> T readCollectionValue(String jsonStr, Class<? extends Collection> collectionClass, Class clazz) {
         try {
-            return mapper.readValue(jsonStr, (JavaType) mapper.convertValue(collectionClass, clazz));
+            return mapper.readValue(jsonStr, mapper.<JavaType>convertValue(collectionClass, clazz));
         } catch (JsonProcessingException e) {
             return null;
         }

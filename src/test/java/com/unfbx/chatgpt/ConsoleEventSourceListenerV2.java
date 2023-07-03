@@ -23,6 +23,10 @@ import java.util.concurrent.CountDownLatch;
 public class ConsoleEventSourceListenerV2 extends EventSourceListener {
     @Getter
     String args = "";
+
+    @Getter
+    String fun = "";
+
     CountDownLatch countDownLatch;
 
     public ConsoleEventSourceListenerV2(CountDownLatch countDownLatch) {
@@ -45,6 +49,9 @@ public class ConsoleEventSourceListenerV2 extends EventSourceListener {
         ChatCompletionResponse chatCompletionResponse = JSONUtil.toBean(data, ChatCompletionResponse.class);
         if(Objects.nonNull(chatCompletionResponse.getChoices().get(0).getDelta().getFunctionCall())){
             args += chatCompletionResponse.getChoices().get(0).getDelta().getFunctionCall().getArguments();
+            if (Objects.nonNull(chatCompletionResponse.getChoices().get(0).getDelta().getFunctionCall().getName())) {
+                fun += chatCompletionResponse.getChoices().get(0).getDelta().getFunctionCall().getName();
+            }
         }
     }
 
