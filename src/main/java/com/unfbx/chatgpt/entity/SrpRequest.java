@@ -1,10 +1,6 @@
 package com.unfbx.chatgpt.entity;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.unfbx.chatgpt.aop.Description;
-import com.unfbx.chatgpt.aop.JsonSchemaEnum;
 
 public class SrpRequest {
 
@@ -14,7 +10,7 @@ public class SrpRequest {
     @Description(value = "列表结果每页有几条专利", type = "integer")
     private int limit;
 
-    @Description(value = "默认检索方式：query", type = "string")
+    @Description(value = "默认检索方式：query", type = "string", name = "_type")
     private String type;
 
     @Description(value = "列表结果的页数", type = "integer")

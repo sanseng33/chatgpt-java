@@ -11,5 +11,8 @@ public @interface Description {
     String value() default "";
     String type() default "string";
     String[] enumValues() default {};
+    String name() default "";
+
+    String arrayType() default "";
 }
 

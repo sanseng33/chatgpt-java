@@ -1,6 +1,8 @@
 package com.unfbx.chatgpt.utils;
 
-import com.patsnap.common.jackson.JsonMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 
 import java.util.Collection;
 
@@ -8,10 +10,10 @@ import java.util.Collection;
  * Created by yanglinlin on 2017/11/22.
  */
 public class SimpleJsonMapper {
-    private static final JsonMapper mapper = JsonMapper.defaultMapper();
+    private static final JsonMapper mapper = JsonMapper.builder().build();
 
     static {
-        mapper.getMapper().setDefaultPrettyPrinter(null);
+        mapper.setDefaultPrettyPrinter(null);
     }
 
 
@@ -20,14 +22,26 @@ public class SimpleJsonMapper {
             return null;
         }
 
-        return mapper.toJson(obj);
+        try {
+            return mapper.writeValueAsString(obj);
+        } catch (JsonProcessingException e) {
+            return null;
+        }
     }
 
     public static <T> T readValue(String jsonStr, Class<T> clazz) {
-        return mapper.fromJson(jsonStr, clazz);
+        try {
+            return mapper.readValue(jsonStr, clazz);
+        } catch (JsonProcessingException e) {
+            return null;
+        }
     }
 
     public static <T> T readCollectionValue(String jsonStr, Class<? extends Collection> collectionClass, Class clazz) {
-        return mapper.fromJson(jsonStr, mapper.constructCollectionType(collectionClass, clazz));
+        try {
+            return mapper.readValue(jsonStr, (JavaType) mapper.convertValue(collectionClass, clazz));
+        } catch (JsonProcessingException e) {
+            return null;
+        }
     }
 }

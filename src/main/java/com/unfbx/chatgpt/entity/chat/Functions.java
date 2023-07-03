@@ -44,4 +44,9 @@ public class Functions implements Serializable {
      * 扩展参数可以继承Parameters自己实现，json格式的数据
      */
     private Parameters parameters;
+
+    /**
+     * 方法输出
+     */
+    private Parameters output;
 }

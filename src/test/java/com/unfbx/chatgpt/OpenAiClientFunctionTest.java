@@ -7,9 +7,10 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.jsonSchema.JsonSchema;
 import com.fasterxml.jackson.module.jsonSchema.JsonSchemaGenerator;
-import com.google.common.collect.Maps;
 import com.unfbx.chatgpt.aop.Description;
+import com.unfbx.chatgpt.entity.PatentOriginalRequest;
 import com.unfbx.chatgpt.entity.SrpRequest;
+import com.unfbx.chatgpt.entity.SrpResponse;
 import com.unfbx.chatgpt.entity.chat.*;
 import com.unfbx.chatgpt.function.KeyRandomStrategy;
 import com.unfbx.chatgpt.interceptor.DynamicKeyOpenAiAuthInterceptor;
@@ -29,6 +30,7 @@ import org.springframework.boot.autoconfigure.http.HttpMessageConverters;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.lang.reflect.Field;
@@ -58,8 +60,7 @@ public class OpenAiClientFunctionTest {
         //可以为null
         Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("127.0.0.1", 7890));
         HttpLoggingInterceptor httpLoggingInterceptor = new HttpLoggingInterceptor(new OpenAILogger());
-        //！！！！千万别再生产或者测试环境打开BODY级别日志！！！！
-        //！！！生产或者测试环境建议设置为这三种级别：NONE,BASIC,HEADERS,！！！
+
         httpLoggingInterceptor.setLevel(HttpLoggingInterceptor.Level.HEADERS);
         OkHttpClient okHttpClient = new OkHttpClient
                 .Builder()
@@ -72,7 +73,7 @@ public class OpenAiClientFunctionTest {
                 .build();
         openAiClient = OpenAiClient.builder()
                 //支持多key传入，请求时候随机选择
-                .apiKey(Arrays.asList("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"))
+                .apiKey(Arrays.asList("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"))
                 //自定义key的获取策略：默认KeyRandomStrategy
                 .keyStrategy(new KeyRandomStrategy())
                 .authInterceptor(new DynamicKeyOpenAiAuthInterceptor())
@@ -83,7 +84,7 @@ public class OpenAiClientFunctionTest {
 
         openAiStreamClient = OpenAiStreamClient.builder()
                 //支持多key传入，请求时候随机选择
-                .apiKey(Arrays.asList("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"))
+                .apiKey(Arrays.asList("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"))
                 //自定义key的获取策略：默认KeyRandomStrategy
                 .keyStrategy(new KeyRandomStrategy())
                 .authInterceptor(new DynamicKeyOpenAiAuthInterceptor())
@@ -96,27 +97,41 @@ public class OpenAiClientFunctionTest {
     @Test
     public void chatFunctionTest() throws JsonProcessingException {
         //模型：GPT_3_5_TURBO_16K_0613
-        Message message = Message.builder().role(Message.Role.USER).content("查找华为技术有限公司最新申请的20篇专利,总结成几个技术方向。").build();
+        Message message = Message.builder().role(Message.Role.USER).content("查找华为技术有限公司最新申请的20篇专利,获取专利的摘要信息，将信息总结成几个技术方向。").build();
+        Message system = Message.builder().role(Message.Role.SYSTEM).content("如果用户的请求是模棱两可的，那么不要猜测函数中应该插入什么值，而是要求说明。").build();
 
-        //构造函数1
+        //构造 获取专利函数
         Parameters parameters = Parameters.builder()
                 .type("object")
                 .properties(transform(new SrpRequest()))
                 .required(Arrays.asList("sort","page","q","playbook","_type")).build();
+        Parameters outParameters = Parameters.builder()
+                .type("object")
+                .properties(transform(new SrpResponse())).build();
         Functions functions = Functions.builder()
                 .name("obtainPatentList")
-                .description("通过查询语句和查询数量等检索获取一批专利信息的结果")
+//                .description("通过查询语句和查询数量等检索获取一批专利信息的结果")
+                .description("通过查询语句和查询数量等检索获取一批专利的id")
                 .parameters(parameters)
+                .output(outParameters)
                 .build();
 
-        //构造函数2
-
+        //构造 获取摘要函数
+        Parameters abParameters = Parameters.builder()
+                .type("object")
+                .properties(transform(new PatentOriginalRequest()))
+                .required(Arrays.asList("pids","fl","search_type")).build();
+        Functions abFunctions = Functions.builder()
+                .name("obtainPatentInfo")
+                .description("通过专利id，获取专利的摘要、标题等专利信息")
+                .parameters(abParameters)
+                .build();
 
         //api調用获得请求参数
         ChatCompletion chatCompletion = ChatCompletion
                 .builder()
-                .messages(Collections.singletonList(message))
-                .functions(Collections.singletonList(functions))
+                .messages(Arrays.asList(system, message))
+                .functions(Arrays.asList(functions, abFunctions))
                 .functionCall("auto")
                 .model(ChatCompletion.Model.GPT_3_5_TURBO_16K_0613.getName())
                 .build();
@@ -137,7 +152,10 @@ public class OpenAiClientFunctionTest {
         String args = eventSourceListener.getArgs();
         System.out.print(args);
 
+        //拿生成的参数调用相应api
         String apiResponse = obtainHttpData(args);
+
+
         Message messageResponse = Message.builder().role(Message.Role.FUNCTION).name("obtainPatentList").content(apiResponse).build();
         Message messageRequest = Message.builder().role(Message.Role.ASSISTANT).content("").functionCall(new FunctionCall("obtainPatentList", args)).build();
         chatCompletion.setMessages(Arrays.asList(message, messageRequest, messageResponse));
@@ -163,20 +181,25 @@ public class OpenAiClientFunctionTest {
 
 
 
-    private JSONObject transform(SrpRequest srpRequest) {
+    private JSONObject transform(Object request) {
         JSONObject json = new JSONObject();
 
-        Field[] fields = SrpRequest.class.getDeclaredFields();
+        Field[] fields = request.getClass().getDeclaredFields();
         for (Field field : fields) {
             Description description = field.getAnnotation(Description.class);
             if (description != null) {
                 JSONObject fieldDescription = new JSONObject();
-                fieldDescription.put("type", description.type());
-                fieldDescription.put("description", description.value());
+                fieldDescription.putOpt("type", description.type());
+                fieldDescription.putOpt("description", description.value());
                 if (description.enumValues().length > 0) {
-                    fieldDescription.put("enum", description.enumValues());
+                    fieldDescription.putOpt("enum", description.enumValues());
                 }
-                json.put(field.getName(), fieldDescription);
+                if (description.type().equals("array")) {
+                    JSONObject array = new JSONObject();
+                    array.putOpt("type", description.arrayType());
+                    fieldDescription.putOpt("items", array);
+                }
+                json.putOpt(description.name().equals("")?field.getName():description.name(), fieldDescription);
             }
         }
 
@@ -193,6 +216,8 @@ public class OpenAiClientFunctionTest {
             Request request = new Request.Builder()
                     .url(url)
                     .addHeader("X-PatSnap-From", "s-core-eureka")
+                    .addHeader("X-API-Version", "1.0")
+                    .addHeader("X-PatSnap-Version", "v1")
                     .post(requestBody)
                     .build();
 
@@ -200,7 +225,9 @@ public class OpenAiClientFunctionTest {
             Response response = call.execute();
 
             if (response.isSuccessful()) {
-                Object data = SimpleJsonMapper.readValue(SimpleJsonMapper.writeValue(response.body()), Map.class).get("data");
+                String body = response.body().string();
+                Map map = SimpleJsonMapper.readValue(body, Map.class);
+                Object data = ((Map)map.get("data")).get("records");
                 return SimpleJsonMapper.writeValue(data);
             }
 
